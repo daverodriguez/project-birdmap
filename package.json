@@ -1,0 +1,31 @@
+{
+  "name": "project-birdmap",
+  "version": "1.0.0",
+  "description": "Mapping bird diversity with eBird data, Mapbox GL JS and Vue.js",
+  "main": "scripts/sample.js",
+  "dependencies": {
+    "humanize-duration": "^3.21.0",
+    "serve": "^11.3.0",
+    "sqlite3": "^4.1.1",
+    "yargs": "^15.1.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/daverodriguez/project-birdmap.git"
+  },
+  "keywords": [
+    "birding",
+    "ebird",
+    "mapping"
+  ],
+  "author": "Dave Rodriguez (ohiodave@gmail.com)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/daverodriguez/project-birdmap/issues"
+  },
+  "homepage": "https://github.com/daverodriguez/project-birdmap#readme"
+}

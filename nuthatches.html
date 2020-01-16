@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Bird Diversity Map: Nuthatches</title>
+	<link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.3.0/mapbox-gl.css' rel='stylesheet' />
+	<link href="https://fonts.googleapis.com/css?family=Fira+Sans:400,400i,600,600i" rel="stylesheet">
+	<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="map" id="map"></div>
+
+<div id="birdMapApp">
+	<div class="filter-panel" id="filterPanel">
+		<div class="filter-panel__search">
+			<div class="filter-panel__search-row">
+				<label for="filter">Filter:</label>
+				<input type="filter" name="filter" id="filter" v-model="filter">
+			</div>
+			<div class="filter-panel__current-set">
+				<strong>Showing<span v-if="selectedSpecies && selectedSpecies.length > 1"> combined</span>
+					<span v-if="selectedSpecies && selectedSpecies.length"> range for</span>:</strong>
+				<span v-if="filterAll">All species</span>
+				<ul class="filter-panel__current-set-list" v-if="!filterAll">
+					<li v-for="species in selectedSpecies">
+						<span @click="removeSpeciesFromFilter(species)">
+							<button>&times;</button> {{ species }}
+						</span>
+					</li>
+				</ul>
+			</div>
+		</div>
+		<div class="filter-panel__list-wrap">
+			<ol class="filter-panel__list">
+				<li>
+					<label :readonly="filterAll">
+						<input type="checkbox" value="true" v-model="filterAll" :readonly="filterAll" @change="toggleFilterAll">
+						All Species
+					</label>
+				</li>
+				<li v-for="species in filteredTaxonomy">
+					<label>
+						<input type="checkbox" v-model="selectedSpecies" :value="species.scientificName" @change="toggleSpeciesInFilter">
+						{{species.commonName}} ({{species.scientificName}})
+					</label>
+					(<a v-bind:href="'https://ebird.org/species/' + species.speciesCode" target="_blank">Description</a>)
+					(<a href="#" @click="addSpeciesToFilter($event, species, true)" target="_blank">Range</a>)
+				</li>
+			</ol>
+		</div>
+	</div>
+	<div class="observations-panel js-counter" v-if="inspectedSampleGrid">
+		<div class="observations-panel__header">
+			<h2>Observations <span v-html="inspectedSampleGridLabel"></span></h2>
+			<div>Total Observations: <span v-html="inspectedSampleGridTotalObservations"></span></div>
+		</div>
+		<div class="observations-panel__list-wrap">
+			<h3>{{inspectedSampleGrid.properties.numSpecies}} Common Species<span v-html="inspectedSampleGridThreshold"></span></h3>
+			<div class="counter__list">
+				<ol>
+					<li v-for="species in filteredObservedSpeciesList">
+						{{species.commonName}} ({{species.verbatimScientificName}})
+						- (<a :href="getDescriptionUrl(species)" target="_blank">Description</a>)
+						- (<a :href="getMapUrl(species)" target="_blank">Sightings</a>)
+						- (<a href="#" @click="addSpeciesToFilter($event, species, true)">Range</a>)
+						- {{species.observationCount.toLocaleString()}} records
+					</li>
+				</ol>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.3.0/mapbox-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script>
+	dataFile = "data/sample-data-sittidae.json";
+	dataFileStreaming = "data/sample-data-sittidae-streaming.json";
+	taxonomyFile = "data/taxonomy-sittidae.json";
+</script>
+<script src="js/app.js"></script>
+</body>
+</html>
