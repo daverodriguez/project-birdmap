@@ -9,10 +9,25 @@
 </head>
 <body>
 
+<div class="title">
+	Global Diversity Map for Family Sittidae (Nuthatches)
+	<div class="title__instructions">
+		Click a sample grid square to see species
+	</div>
+</div>
+
 <div class="map" id="map"></div>
 
 <div id="birdMapApp">
-	<div class="filter-panel" id="filterPanel">
+	<div class="loading-indicator" v-if="!isLoaded">
+		<div class="loading-indicator__title">Loading&hellip;</div>
+		<div class=" la-ball-spin-rotate la-2x la-dark">
+			<div></div>
+			<div></div>
+		</div>
+	</div>
+
+	<div class="filter-panel before-vue-initialized" id="filterPanel" v-bind:class="{ 'state-loading': !isLoaded }">
 		<div class="filter-panel__search">
 			<div class="filter-panel__search-row">
 				<label for="filter">Filter:</label>
@@ -50,7 +65,7 @@
 			</ol>
 		</div>
 	</div>
-	<div class="observations-panel js-counter" v-if="inspectedSampleGrid">
+	<div class="observations-panel before-vue-initialized" v-if="inspectedSampleGrid" v-bind:class="{ 'state-loading': !isLoaded }">
 		<div class="observations-panel__header">
 			<h2>Observations <span v-html="inspectedSampleGridLabel"></span></h2>
 			<div>Total Observations: <span v-html="inspectedSampleGridTotalObservations"></span></div>
@@ -70,6 +85,11 @@
 			</div>
 		</div>
 	</div>
+</div>
+
+<div class="citation">
+	Data provided by GBIF and EBIRD EOD:<br>
+	GBIF.org (14 January 2020) GBIF Occurrence Download <a href="https://doi.org/10.15468/dl.zfihxm" target="_blank">https://doi.org/10.15468/dl.zfihxm</a>
 </div>
 
 <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.3.0/mapbox-gl.js"></script>
