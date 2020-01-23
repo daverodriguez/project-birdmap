@@ -3,5 +3,6 @@ node_modules/
 .idea/
 
 *.db
+!data/ebird_eod_empty.db
 *-streaming.json
 skip-list.json
