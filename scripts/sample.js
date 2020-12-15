@@ -1,7 +1,14 @@
 const sqlite = require('sqlite3');
 const humanizeDuration = require('humanize-duration');
 const fs = require('fs');
-const skipList = require('../data/skip-list.json');
+
+const skipFilePath = '../data/skip-list.json';
+let skipList;
+if (fs.existsSync(skipFilePath)) {
+	skipList = require(skipFilePath);
+} else {
+	skipList = [];
+}
 
 const args = require('yargs').argv;
 const outFile = args.hasOwnProperty('outfile') ? args.outfile : 'sample-data.json';
@@ -18,6 +25,21 @@ const outFileStreaming = args.hasOwnProperty('outfile') ? outFile.replace('.json
 const outPath = `../data/${outFile}`;
 const outPathStreaming = `../data/${outFileStreaming}`;
 
+// Iteration counter and metrics for how long this query will take to run - we'll update this as we the query progresses
+let i = 1;
+const numXSteps = Math.ceil( (Math.abs(LAT_MIN) + LAT_MAX) / STEP );
+const numYSteps = Math.ceil( (Math.abs(LNG_MIN) + LNG_MAX) / STEP );
+const numSteps = numXSteps * numYSteps;
+const QUERY_TIME = 2500;
+let averageQueryTime = 2500;
+let writeInterval = Infinity;
+let lastTime = new Date().getTime();
+
+const sampleData = {
+	type: "FeatureCollection",
+	features: []
+};
+
 function sleep(millis) {
 	return new Promise(resolve => setTimeout(resolve, millis));
 }
@@ -33,58 +55,49 @@ const db = new sqlite.Database(`../data/${dbName}`, sqlite.OPEN_READONLY, (err) 
 		return console.error(err.message);
 	}
 	console.log(`Connected to the SQlite database: ${dbName}`);
+	doQueries();
+	doCleanup();
 });
 
-const numXSteps = Math.ceil( (Math.abs(LAT_MIN) + LAT_MAX) / STEP );
-const numYSteps = Math.ceil( (Math.abs(LNG_MIN) + LNG_MAX) / STEP );
-const numSteps = numXSteps * numYSteps;
-let i = 1;
+function doQueries() {
+	console.log(`Querying view name: ${viewName}`);
 
-const QUERY_TIME = 2500;
-let averageQueryTime = 2500;
-let lastTime = new Date().getTime();
+	let runtime = numSteps * QUERY_TIME;
+	writeInterval = Math.ceil(60 / (QUERY_TIME / 1000) ); // Attempt to write a file about once per minute
+	console.log(`I'll write to the data file about once every ${writeInterval} queries`);
+	console.log(`Approximate runtime is ${humanizeDuration(runtime)}`);
 
-let runtime = numSteps * QUERY_TIME;
-const writeInterval = Math.ceil(60 / (QUERY_TIME / 1000) ); // Attempt to write a file about once per minute
-console.log(`Approximate runtime is ${humanizeDuration(runtime)}`);
-console.log(`Write interval is ${writeInterval}`);
+	for (let lat = LAT_MIN; lat < LAT_MAX; lat += STEP) {
+		for (let lng = LNG_MIN; lng < LNG_MAX; lng += STEP) {
 
-const sampleData = {
-	type: "FeatureCollection",
-	features: []
-};
-
-console.log(`Querying view name: ${viewName}`);
-
-for (let lat = LAT_MIN; lat < LAT_MAX; lat += STEP) {
-	for (let lng = LNG_MIN; lng < LNG_MAX; lng += STEP) {
-
-		const query = `SELECT DISTINCT verbatimScientificName, commonName, speciesCode, count(*) AS observationCount
+			const query = `SELECT DISTINCT verbatimScientificName, commonName, speciesCode, count(*) AS observationCount
 			FROM ${viewName}
 			WHERE decimalLatitude BETWEEN ${lat} AND ${lat + STEP} 
 			AND decimalLongitude BETWEEN ${lng} AND ${lng + STEP}
 			GROUP BY verbatimScientificName
 			ORDER BY observationCount DESC`;
 
-		// console.log(query);
+			// console.log(query);
 
-		let skip = skipList.find(el => {
-			return el.step === STEP && el.lat === lat && el.lng === lng;
-		});
-		db.serialize(() => {
-			if (skip) {
-				writeNextGrid(lat, lng, STEP, null, true);
-			} else {
-				// console.log(query);
-				db.all(query, (err, result) => {
-					if (!err) {
-						writeNextGrid(lat, lng, STEP, result);
-					} else {
-						return process.exit(1);
-					}
-				});
-			}
-		});
+			let skip = skipList.find(el => {
+				return el.step === STEP && el.lat === lat && el.lng === lng;
+			});
+			db.serialize(() => {
+				if (skip) {
+					writeNextGrid(lat, lng, STEP, null, true);
+				} else {
+					// console.log(query);
+					db.all(query, (err, result) => {
+						if (!err) {
+							writeNextGrid(lat, lng, STEP, result);
+						} else {
+							console.log(err);
+							return process.exit(1);
+						}
+					});
+				}
+			});
+		}
 	}
 }
 
@@ -151,14 +164,15 @@ function writeNextGrid(lat, lng, step, result, skipped = false) {
 	}
 }
 
-db.close((err) => {
-	if (err) {
-		return console.error(err.message);
-	}
-	console.log('Closed the database connection.');
+function doCleanup() {
+	db.close((err) => {
+		if (err) {
+			return console.error(err.message);
+		}
+		console.log('Closed the database connection.');
 
-	const sampleJson = JSON.stringify(sampleData);
-	fs.writeFileSync(outPathStreaming, sampleJson);
-	fs.writeFileSync(outPath, sampleJson);
-});
-
+		const sampleJson = JSON.stringify(sampleData);
+		fs.writeFileSync(outPathStreaming, sampleJson);
+		fs.writeFileSync(outPath, sampleJson);
+	});
+}

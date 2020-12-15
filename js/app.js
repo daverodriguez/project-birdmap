@@ -20,13 +20,31 @@ async function getTaxonomy() {
 	return data;
 }
 
+function filterTaxonomy(sampleGrids) {
+	const uniqueReducer = (accumulator, item) => {
+		return accumulator.findIndex(accumItem => accumItem.speciesCode === item.speciesCode) > -1 ? accumulator : accumulator.concat(item);
+	};
+
+	const combineReducer = (accumulator, item) => {
+		if (!Array.isArray(accumulator)) {
+			return [item.properties.observedSpecies];
+		}
+		return accumulator.concat(item.properties.observedSpecies);
+	}
+
+	const allSpecies = sampleGrids.features.reduce(combineReducer);
+	const uniqueSpecies = allSpecies.reduce(uniqueReducer);
+	return uniqueSpecies;
+}
+
 async function getData() {
 	let sampleGrids = await getSampleGrids();
 	let taxonomy = await getTaxonomy();
+	let filteredTaxonomy = filterTaxonomy(sampleGrids);
 
 	return {
 		sampleGrids: sampleGrids,
-		taxonomy: taxonomy
+		taxonomy: filteredTaxonomy
 	}
 }
 
@@ -57,20 +75,24 @@ function initApp(data) {
 		},
 		computed: {
 			mapStyles: function() {
+				let maxNumSpecies = this.getMaxNumSpecies() || 40;
+				console.log(`Max num of species is ${maxNumSpecies}`);
+
 				let fillStops;
 				if (this.mapIntent === MapIntents.DIVERSITY) {
+
 					fillStops = [
 						'interpolate', ['linear'], ['get', 'numSpecies'],
 						0, '#033', // DEBUG ONLY
 						1, '#fff7ec',
-						// 1, '#fee8c8',
-						// 1, '#fdd49e',
-						// 1, '#fdbb84',
-						// 16, '#fc8d59',
-						// 16, '#ef6548',
-						16, '#d7301f',
-						24, '#b30000',
-						40, '#7f0000',
+						// Math.ceil((maxNumSpecies / 9) * 2), '#fee8c8',
+						Math.ceil((maxNumSpecies / 6) * 2), '#fdd49e',
+						// Math.ceil((maxNumSpecies / 9) * 4), '#fdbb84',
+						Math.ceil((maxNumSpecies / 6) * 3), '#fc8d59',
+						// Math.ceil((maxNumSpecies / 9) * 6), '#ef6548',
+						Math.ceil((maxNumSpecies / 6) * 4), '#d7301f',
+						Math.ceil((maxNumSpecies / 6) * 5), '#b30000',
+						maxNumSpecies, '#7f0000',
 					];
 				} else {
 					fillStops = [
@@ -115,7 +137,7 @@ function initApp(data) {
 				} else {
 					return this.taxonomy.filter(el => {
 						let commonName = el.commonName.toLowerCase();
-						let scientificName = el.scientificName.toLowerCase();
+						let scientificName = el.verbatimScientificName.toLowerCase();
 						let filterValue = this.filter.toLowerCase();
 
 						return commonName.indexOf(filterValue) > -1 || scientificName.indexOf(filterValue) > -1;
@@ -195,6 +217,18 @@ function initApp(data) {
 
 		},
 		methods: {
+			getMaxNumSpecies() {
+				const maxReducer = (accumulator, currentValue) => {
+					if (typeof(accumulator) === 'object') {
+						return accumulator.properties.numSpecies;
+					} else {
+						return Math.max(accumulator, currentValue.properties.numSpecies);
+					}
+				}
+
+				const max = data.sampleGrids.features.reduce(maxReducer);
+				return Math.max(max, 10);
+			},
 			toggleFilterAll: function(e) {
 				this.selectedSpecies = [];
 				if (!e.target.checked) {
@@ -265,6 +299,16 @@ function initApp(data) {
 					data: this.filteredSampleGrids
 				});
 
+				if (!this.filterAll) {
+					let bounds = turf.bbox(this.filteredSampleGrids);
+					this.map.fitBounds(bounds, { padding: 150 });
+				} else {
+					this.map.flyTo({
+						center: [0, 0],
+						zoom: 2
+					});
+				}
+
 				this.map.addLayer({
 					id: 'sample-grids',
 					type: 'fill',
@@ -311,6 +355,8 @@ function initApp(data) {
 				let features = this.map.queryRenderedFeatures(e.point);
 				let foundFeature;
 				let toggleOff = false;
+
+				// console.log(features);
 
 				for (let feature of features) {
 					if (feature.hasOwnProperty('source') && feature.source === layerName) {
@@ -362,6 +408,36 @@ function initApp(data) {
 			getMapUrl: function(species) {
 				const properties = this.inspectedSampleGrid.properties;
 				return `https://ebird.org/map/${species.speciesCode}?env.minX=${properties.lngMin}&env.minY=${properties.latMin}&env.maxX=${properties.lngMax}&env.maxY=${properties.latMax}`;
+			},
+			getSampleGridAttributes() {
+				window.map = this.map;
+				window.sampleGridAttributes = {};
+				const LAT_MIN = -90;
+				const LAT_MAX = 90;
+				const LNG_MIN = -180;
+				const LNG_MAX = 180;
+				// const LAT_MIN = -10;
+				// const LAT_MAX = -4;
+				// const LNG_MIN = -10;
+				// const LNG_MAX = -4;
+
+				for (let lat = LAT_MIN; lat < LAT_MAX; lat++) {
+					for (let lng = LNG_MIN; lng <= LNG_MAX; lng++) {
+						// console.log(lng, lat);
+						let x1y1 = this.map.project([lng, Math.max(-89.999999), lat]);
+						let x2y2 = this.map.project([lng + 0.999999, lat + 0.999999]);
+						// console.log(x1y1);
+						// console.log(x2y2);
+						// window.x1y1 = x1y1;
+						// window.x2y2 = x2y2;
+						let nextGrid = [x1y1, x2y2];
+						let features = this.map.queryRenderedFeatures(nextGrid);
+						let featureNames = features.map(el => el.layer.id);
+						window.sampleGridAttributes[`${lat},${lng}`] = featureNames;
+					}
+				}
+
+				console.log(window.sampleGridAttributes);
 			}
 		},
 		created: function() {
@@ -376,6 +452,7 @@ function initApp(data) {
 			});
 
 			this.map.on('load', () => {
+				// this.getSampleGridAttributes();
 				this.updateMapLayers();
 			})
 		}

@@ -56,8 +56,8 @@
 				</li>
 				<li v-for="species in filteredTaxonomy">
 					<label>
-						<input type="checkbox" v-model="selectedSpecies" :value="species.scientificName" @change="toggleSpeciesInFilter">
-						{{species.commonName}} ({{species.scientificName}})
+						<input type="checkbox" v-model="selectedSpecies" :value="species.verbatimScientificName" @change="toggleSpeciesInFilter">
+						{{species.commonName}} ({{species.verbatimScientificName}})
 					</label>
 					(<a v-bind:href="'https://ebird.org/species/' + species.speciesCode" target="_blank">Description</a>)
 					(<a href="#" @click="addSpeciesToFilter($event, species, true)" target="_blank">Range</a>)
@@ -93,6 +93,7 @@
 </div>
 
 <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.3.0/mapbox-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@5/turf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script>
 	dataFile = "data/sample-data-paridae.json";

@@ -3,9 +3,15 @@ const fs = require('fs');
 const args = require('yargs').argv;
 const outFile = args.hasOwnProperty('outfile') ? args.outfile : 'taxonomy.json';
 const family = args.family;
+const order = args.order;
 const outPath = `../data/${outFile}`;
 
-console.log(`Creating taxonomy for family ${family}`);
+if (family) {
+	console.log(`Creating taxonomy for family ${family}`);
+} else if (order) {
+	console.log(`Creating taxonomy for order ${order}`);
+}
+
 
 const db = new sqlite.Database('../data/ebird_eod.db', sqlite.OPEN_READONLY, (err) => {
 	if (err) {
@@ -16,9 +22,13 @@ const db = new sqlite.Database('../data/ebird_eod.db', sqlite.OPEN_READONLY, (er
 
 let taxonomy = [];
 
-const query = `SELECT SPECIES_CODE as speciesCode, PRIMARY_COM_NAME as commonName,
-SCI_NAME as scientificName FROM taxonomy
-WHERE FAMILY = '${family}' AND CATEGORY = 'species';`;
+let query = `SELECT SPECIES_CODE as speciesCode, PRIMARY_COM_NAME as commonName,
+SCI_NAME as scientificName FROM taxonomy `;
+if (family) {
+	query = query.concat(`WHERE FAMILY = '${family}' AND CATEGORY = 'species';`);
+} else if (order) {
+	query = query.concat(`WHERE ORDER1 = '${order}' AND CATEGORY = 'species';`);
+}
 
 db.all(query, (err, result) => {
 	if (!err) {
